@@ -32,6 +32,26 @@ smb_error_status = [
     "STATUS_ACCESS_DENIED"
 ]
 
+# taken from CME
+def check_if_admin(conn):
+        rpctransport = SMBTransport(conn.getRemoteHost(), 445, r'\svcctl', smb_connection=conn)
+        dce = rpctransport.get_dce_rpc()
+        try:
+            dce.connect()
+        except:
+            pass
+        else:
+            dce.bind(scmr.MSRPC_UUID_SCMR)
+            try:
+                # 0xF003F - SC_MANAGER_ALL_ACCESS
+                # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981(v=vs.85).aspx
+                ans = scmr.hROpenSCManagerW(dce,'{}\x00'.format(conn.getRemoteHost()),'ServicesActive\x00', 0xF003F)
+                return True
+            except scmr.DCERPCException as e:
+                return False
+                pass
+        return
+
 smb_error_locked = "STATUS_ACCOUNT_LOCKED_OUT"
 
 shutdown = False
@@ -294,8 +314,8 @@ def main():
         print(colored("[!] No users to spray... exiting", "red", attrs=['bold']))
         sys.exit()
     
-    if not args.p and not args.P:
-        print(colored("[!] No passwords to spray... exiting", "red", attrs=['bold']))
+    if not args.p and not args.P and not args.user_pw:
+        print(colored("[!] No passwords to spray... exiting", "red",attrs=['bold']))
         sys.exit()
     
     if not domain:
